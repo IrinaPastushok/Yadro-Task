@@ -8,6 +8,7 @@
 #include <string>
 #include <iomanip>
 #include <queue>
+#include <algorithm>
 
 using namespace std;
 
@@ -176,6 +177,7 @@ void processingId2(const fileInfo& note)
         {
             iterC->timeInTable = note.clientTime;
             iterC->status = note.id;
+            iterC->tableNum = note.tableNumber;
             break;
         }
     }
@@ -231,7 +233,51 @@ void processingId3(const fileInfo& note)
 
 void processingId4(const fileInfo& note)
 {
+    if (!isAbonentInSystem(note)) // Проверка на наличие клиента в системе
+    {
+        printTime(note.clientTime);
+        cout << "13 ClientUnknown" << endl;
+        return;
+    }
 
+    int numberPlace = 0;
+    for (auto iterAb = abonents.begin(); iterAb != abonents.end(); iterAb++)
+    {
+        if (iterAb->name == note.clientName)
+        {
+            iterAb->status = note.id;
+            iterAb->timeOut = note.clientTime;
+            numberPlace = iterAb->tableNum;
+        }
+    }
+
+    places[numberPlace - 1].isFree = true;
+    if (!waitingAbonents.empty())
+    {
+        clients tmpAb = waitingAbonents.front();
+        for (auto iterAb = abonents.begin(); iterAb != abonents.end(); iterAb++)
+        {
+            if (iterAb->name == tmpAb.name)
+            {
+                iterAb->status = 12;
+                iterAb->tableNum = numberPlace;
+                places[numberPlace - 1].isFree = false;
+                iterAb->timeInTable = note.clientTime;
+                waitingAbonents.pop();
+                printTime(note.clientTime);
+                cout << "12 " << tmpAb.name << " " << iterAb->tableNum << endl;
+            }
+        }
+    }
+}
+
+void diffTime(const tm& in, const tm& out, int& hour, int& minutes)
+{
+    time_t start_time = mktime(const_cast<tm*>(&in));
+    time_t end_time = mktime(const_cast<tm*>(&out));
+    double seconds = difftime(end_time, start_time);
+    hour = static_cast<int>(seconds) / 3600;
+    minutes = (static_cast<int>(seconds) % 3600) / 60;
 }
 
 void systemProcessing()
@@ -335,11 +381,11 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    cout << countPlaces << " " << price << endl;
+    /*cout << countPlaces << " " << price << endl;
     cout << "TimeStart: " << std::setw(2) << std::setfill('0') << timeStart.tm_hour << ":"
                       << std::setw(2) << std::setfill('0') << timeStart.tm_min << std::endl;
     cout << "TimeEnd: " << std::setw(2) << std::setfill('0') << timeEnd.tm_hour << ":"
-                      << std::setw(2) << std::setfill('0') << timeEnd.tm_min << std::endl;
+                      << std::setw(2) << std::setfill('0') << timeEnd.tm_min << std::endl;*/
 
     for (int i = 1; i <= countPlaces; i++)
     {
@@ -379,9 +425,56 @@ int main(int argc, char* argv[])
         }
         inputEvents.push_back(info);
     }
-
+    printTime(timeStart);
+    cout << endl;
     systemProcessing();
-    cout << abonents.size() << " " << waitingAbonents.size() << endl;
+    vector<string> last;
+
+    for (auto iterAb = abonents.begin(); iterAb != abonents.end(); iterAb++)
+    {
+        if (iterAb->status == 12 || iterAb->status == 2)
+        {
+            iterAb->timeOut = timeEnd;
+        }
+        if (iterAb->status != 4 && iterAb->status != 11)
+        {
+            last.push_back(iterAb->name);
+        }
+    }
+
+    std::sort(last.begin(), last.end());
+    for (auto iter = last.begin(); iter != last.end(); iter++)
+    {
+        printTime(timeEnd);
+        cout << "11 " << *iter << endl;
+    }
+    printTime(timeEnd);
+    cout << endl;
+
+    for (auto iterAb = abonents.begin(); iterAb != abonents.end(); iterAb++)
+    {
+        if (iterAb->status == 4 || iterAb->status == 12 || iterAb->status == 2)
+        {
+            int tmpRes = calculateTimeSpent(iterAb->timeInTable, iterAb->timeOut);
+            cout << iterAb->name << " " << (double)(tmpRes * price) << " ";
+            int hours = 0, minutes = 0;
+            diffTime(iterAb->timeInTable, iterAb->timeOut, hours, minutes);
+            cout << std::setw(2) << std::setfill('0') << hours << ":"
+                 << std::setw(2) << std::setfill('0') << minutes << std::endl;
+        }
+    }
+
+    cout << endl << "List Of Clients Status: " << endl;
+    for (auto iter = abonents.begin(); iter != abonents.end(); iter++)
+    {
+        cout << "Time In: ";
+        printTime(iter->timeIn);
+        cout << endl << "Name: " << iter->name << endl << "Status: " << iter->status << endl << "Start Time In Table: ";
+        printTime(iter->timeInTable);
+        cout << endl << "Time Out: ";
+        printTime(iter->timeOut);
+        cout << endl << endl;
+    }
 
     return 0;
 }
