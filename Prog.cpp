@@ -464,17 +464,5 @@ int main(int argc, char* argv[])
         }
     }
 
-    cout << endl << "List Of Clients Status: " << endl;
-    for (auto iter = abonents.begin(); iter != abonents.end(); iter++)
-    {
-        cout << "Time In: ";
-        printTime(iter->timeIn);
-        cout << endl << "Name: " << iter->name << endl << "Status: " << iter->status << endl << "Start Time In Table: ";
-        printTime(iter->timeInTable);
-        cout << endl << "Time Out: ";
-        printTime(iter->timeOut);
-        cout << endl << endl;
-    }
-
     return 0;
 }
